@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FPRT — PLØKS Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+  :root {
+    --navy: #0f1f35;
+    --navy2: #1a2f4a;
+    --navy3: #243d5e;
+    --accent: #c0392b;
+    --accent2: #e74c3c;
+    --gold: #d4a017;
+    --green: #1a9e5c;
+    --yellow: #d4a017;
+    --red: #c0392b;
+    --text: #e8edf2;
+    --text2: #8fa3bb;
+    --text3: #5a7390;
+    --border: rgba(255,255,255,0.08);
+    --card: rgba(255,255,255,0.04);
+    --card2: rgba(255,255,255,0.07);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'IBM Plex Sans', sans-serif; background: var(--navy); color: var(--text); min-height: 100vh; }
+
+  /* HEADER */
+  .hdr { display: flex; align-items: center; justify-content: space-between; padding: 16px 28px; border-bottom: 1px solid var(--border); background: var(--navy2); }
+  .hdr-brand { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: .2em; color: var(--text3); text-transform: uppercase; margin-bottom: 3px; }
+  .hdr-title { font-size: 17px; font-weight: 500; color: var(--text); }
+  .hdr-right { display: flex; align-items: center; gap: 12px; }
+  .period-label { font-size: 11px; color: var(--text3); }
+  select { font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; padding: 5px 10px; background: var(--navy3); color: var(--text); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; }
+
+  /* TABS */
+  .tabs { display: flex; gap: 0; padding: 0 28px; background: var(--navy2); border-bottom: 1px solid var(--border); overflow-x: auto; }
+  .tab { padding: 10px 16px; font-size: 12px; cursor: pointer; border-bottom: 2px solid transparent; color: var(--text3); white-space: nowrap; transition: color .15s; font-family: 'IBM Plex Sans', sans-serif; }
+  .tab:hover { color: var(--text2); }
+  .tab.active { border-bottom-color: var(--accent); color: var(--text); font-weight: 500; }
+
+  /* PANES */
+  .pane { display: none; padding: 20px 28px; }
+  .pane.active { display: block; }
+
+  /* KPI GRID */
+  .kgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 20px; }
+  .kc { background: var(--card2); border: 1px solid var(--border); border-radius: 6px; padding: 13px 15px; }
+  .klbl { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 5px; font-family: 'IBM Plex Mono', monospace; }
+  .kval { font-size: 24px; font-weight: 500; color: var(--text); line-height: 1.1; }
+  .ksub { font-size: 11px; margin-top: 4px; display: flex; align-items: center; gap: 4px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .dg { background: #1a9e5c; } .dy { background: #d4a017; } .dr { background: #c0392b; }
+  .sg { color: #1a9e5c; } .sy { color: #d4a017; } .sr { color: #c0392b; }
+
+  /* SECTION TITLE */
+  .st { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 10px; font-family: 'IBM Plex Mono', monospace; }
+
+  /* TABLE */
+  .tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .tbl th { text-align: left; padding: 7px 10px; color: var(--text3); font-weight: 400; border-bottom: 1px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+  .tbl td { padding: 9px 10px; border-bottom: 1px solid var(--border); color: var(--text2); vertical-align: middle; }
+  .tbl tr:last-child td { border-bottom: none; }
+  .tbl td:first-child { color: var(--text); font-weight: 500; }
+
+  /* BADGES */
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 500; font-family: 'IBM Plex Mono', monospace; }
+  .bg { background: rgba(26,158,92,.15); color: #2dd87d; border: 1px solid rgba(26,158,92,.3); }
+  .by { background: rgba(212,160,23,.12); color: #f0c040; border: 1px solid rgba(212,160,23,.3); }
+  .br { background: rgba(192,57,43,.15); color: #ff6b5b; border: 1px solid rgba(192,57,43,.3); }
+
+  /* CHART */
+  .cw { position: relative; width: 100%; height: 200px; margin-bottom: 20px; }
+
+  /* ACTION LOG */
+  .lhdr { display: grid; grid-template-columns: 100px 70px 1fr 1fr 80px 72px 68px; gap: 8px; padding: 6px 10px; font-size: 10px; color: var(--text3); border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: .06em; }
+  .lrow { display: grid; grid-template-columns: 100px 70px 1fr 1fr 80px 72px 68px; gap: 8px; padding: 10px 10px; border-bottom: 1px solid var(--border); font-size: 12px; align-items: start; color: var(--text2); }
+  .lrow:hover { background: var(--card); }
+  .lrow span:first-child { color: var(--text); font-weight: 500; }
+  .sp { padding: 2px 8px; border-radius: 3px; font-size: 10px; font-weight: 500; display: inline-block; font-family: 'IBM Plex Mono', monospace; }
+  .so { background: rgba(192,57,43,.15); color: #ff6b5b; border: 1px solid rgba(192,57,43,.3); }
+  .si { background: rgba(212,160,23,.12); color: #f0c040; border: 1px solid rgba(212,160,23,.3); }
+  .sd { background: rgba(26,158,92,.15); color: #2dd87d; border: 1px solid rgba(26,158,92,.3); }
+
+  /* GOVERNANCE */
+  .gg { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .gc { background: var(--card2); border: 1px solid var(--border); border-radius: 6px; padding: 16px; }
+  .gc h3 { font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 12px; text-transform: uppercase; letter-spacing: .08em; font-family: 'IBM Plex Mono', monospace; }
+  .rr { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 9px; }
+  .rb { min-width: 76px; text-align: center; padding: 3px 6px; border-radius: 3px; font-size: 10px; font-weight: 500; background: var(--navy3); color: var(--text2); border: 1px solid var(--border); font-family: 'IBM Plex Mono', monospace; }
+  .re { background: rgba(192,57,43,.15); color: #ff6b5b; border-color: rgba(192,57,43,.3); }
+  .rt { font-size: 12px; color: var(--text3); line-height: 1.5; }
+  .tl { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 12px; color: var(--text2); }
+  .tl:last-child { border-bottom: none; }
+  .tc { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ACCENT LINE */
+  .acline { height: 3px; background: linear-gradient(90deg, var(--accent), var(--navy3)); margin-bottom: 18px; border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div>
+    <div class="hdr-brand">Fire Point Rocket Technologies</div>
+    <div class="hdr-title">PLØKS Dashboard — Warehouse &amp; Operations</div>
+  </div>
+  <div class="hdr-right">
+    <span class="period-label">Periode:</span>
+    <select>
+      <option>Uge 21 – 2025</option>
+      <option>Uge 20 – 2025</option>
+      <option>Uge 19 – 2025</option>
+    </select>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="sw('o',this)">Overblik</div>
+  <div class="tab" onclick="sw('p',this)">P – Produktion</div>
+  <div class="tab" onclick="sw('l',this)">L – Levering</div>
+  <div class="tab" onclick="sw('e',this)">Ø – Økonomi</div>
+  <div class="tab" onclick="sw('k',this)">K – Kassation</div>
+  <div class="tab" onclick="sw('s',this)">S – Sikkerhed</div>
+  <div class="tab" onclick="sw('lg',this)">Handlingslog</div>
+  <div class="tab" onclick="sw('gv',this)">Governance</div>
+</div>
+
+<!-- OVERBLIK -->
+<div id="po" class="pane active">
+  <div class="kgrid">
+    <div class="kc"><div class="klbl">OTIF</div><div class="kval">96,4%</div><div class="ksub"><span class="dot dr"></span><span class="sr">Under mål (&gt;98%)</span></div></div>
+    <div class="kc"><div class="klbl">Plukfejl</div><div class="kval">0,18%</div><div class="ksub"><span class="dot dg"></span><span class="sg">På mål (&lt;0,3%)</span></div></div>
+    <div class="kc"><div class="klbl">Kapacitetsudnyttelse</div><div class="kval">88%</div><div class="ksub"><span class="dot dg"></span><span class="sg">Inden for 85–95%</span></div></div>
+    <div class="kc"><div class="klbl">Kassationsrate</div><div class="kval">1,4%</div><div class="ksub"><span class="dot dy"></span><span class="sy">Stigende trend</span></div></div>
+    <div class="kc"><div class="klbl">Arbejdsulykker</div><div class="kval">0</div><div class="ksub"><span class="dot dg"></span><span class="sg">Mål: 0</span></div></div>
+    <div class="kc"><div class="klbl">5S score</div><div class="kval">87%</div><div class="ksub"><span class="dot dy"></span><span class="sy">Under mål (&gt;90%)</span></div></div>
+  </div>
+  <div class="st">Status pr. PLØKS-område</div>
+  <table class="tbl">
+    <thead><tr><th>Område</th><th>Nøgle-KPI'er</th><th>Status</th><th>Trend</th><th>Ejer</th></tr></thead>
+    <tbody>
+      <tr><td>P – Produktion</td><td style="color:var(--text3)">Gennemløb, produktivitet, kapacitet, plukfejl</td><td><span class="badge bg">Grøn</span></td><td style="color:#2dd87d">→ Stabil</td><td style="color:var(--text3)">Operations</td></tr>
+      <tr><td>L – Levering</td><td style="color:var(--text3)">OTIF, forsendelsespræcision, lead time, restordrer</td><td><span class="badge br">Rød</span></td><td style="color:#ff6b5b">↓ Faldende</td><td style="color:var(--text3)">Logistik</td></tr>
+      <tr><td>Ø – Økonomi</td><td style="color:var(--text3)">Lagerbinding, omk./ordre, overarbejde</td><td><span class="badge bg">Grøn</span></td><td style="color:#2dd87d">↑ Forbedring</td><td style="color:var(--text3)">Finance/Drift</td></tr>
+      <tr><td>K – Kassation</td><td style="color:var(--text3)">Kassationsrate, beskadigede varer, returårsager</td><td><span class="badge by">Gul</span></td><td style="color:#f0c040">↑ Stigende</td><td style="color:var(--text3)">QA</td></tr>
+      <tr><td>S – Sikkerhed</td><td style="color:var(--text3)">Ulykker, nærved-hændelser, runderinger, 5S</td><td><span class="badge by">Gul</span></td><td style="color:#f0c040">→ Stabil</td><td style="color:var(--text3)">HSE/Ledelse</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- P -->
+<div id="pp" class="pane">
+  <div class="kgrid">
+    <div class="kc"><div class="klbl">Gennemløbstid</div><div class="kval">4,2t</div><div class="ksub"><span class="dot dg"></span><span class="sg">Faldende (↓ mål)</span></div></div>
+    <div class="kc"><div class="klbl">Produktivitet</div><div class="kval">142 lnj/t</div><div class="ksub"><span class="dot dg"></span><span class="sg">Stigende (↑ mål)</span></div></div>
+    <div class="kc"><div class="klbl">Kapacitetsudnyttelse</div><div class="kval">88%</div><div class="ksub"><span class="dot dg"></span><span class="sg">85–95% mål</span></div></div>
+    <div class="kc"><div class="klbl">Plukfejl</div><div class="kval">0,18%</div><div class="ksub"><span class="dot dg"></span><span class="sg">&lt;0,3% mål</span></div></div>
+  </div>
+  <div class="st">Produktivitet – uge 16–21 (linjer/time)</div>
+  <div class="cw"><canvas id="cp"></canvas></div>
+</div>
+
+<!-- L -->
+<div id="pl" class="pane">
+  <div class="kgrid">
+    <div class="kc"><div class="klbl">OTIF</div><div class="kval">96,4%</div><div class="ksub"><span class="dot dr"></span><span class="sr">Under mål (&gt;98%)</span></div></div>
+    <div class="kc"><div class="klbl">Forsendelsespræcision</div><div class="kval">99,8%</div><div class="ksub"><span class="dot dg"></span><span class="sg">&gt;99,7% mål</span></div></div>
+    <div class="kc"><div class="klbl">Lead time</div><div class="kval">1,8 dage</div><div class="ksub"><span class="dot dy"></span><span class="sy">Stigende</span></div></div>
+    <div class="kc"><div class="klbl">Restordrer</div><div class="kval">23</div><div class="ksub"><span class="dot dr"></span><span class="sr">Over niveau</span></div></div>
+  </div>
+  <div class="st">OTIF – uge 16–21 (mål: 98%)</div>
+  <div class="cw"><canvas id="cl"></canvas></div>
+</div>
+
+<!-- Ø -->
+<div id="pe" class="pane">
+  <div class="kgrid">
+    <div class="kc"><div class="klbl">Lagerbinding</div><div class="kval">4,2M kr</div><div class="ksub"><span class="dot dg"></span><span class="sg">Faldende</span></div></div>
+    <div class="kc"><div class="klbl">Omk. pr. ordre</div><div class="kval">38,50 kr</div><div class="ksub"><span class="dot dg"></span><span class="sg">Faldende</span></div></div>
+    <div class="kc"><div class="klbl">Arbejdsproduktivitet</div><div class="kval">↑ 142/t</div><div class="ksub"><span class="dot dg"></span><span class="sg">Forbedring</span></div></div>
+    <div class="kc"><div class="klbl">Overarbejde</div><div class="kval">48t</div><div class="ksub"><span class="dot dy"></span><span class="sy">Monitoreres</span></div></div>
+  </div>
+  <div class="st">Lagerbinding – seneste 6 måneder (mio. kr)</div>
+  <div class="cw"><canvas id="ce"></canvas></div>
+</div>
+
+<!-- K -->
+<div id="pk" class="pane">
+  <div class="kgrid">
+    <div class="kc"><div class="klbl">Kassationsrate</div><div class="kval">1,4%</div><div class="ksub"><span class="dot dy"></span><span class="sy">Stigende trend</span></div></div>
+    <div class="kc"><div class="klbl">Beskadigede varer</div><div class="kval">12 stk</div><div class="ksub"><span class="dot dy"></span><span class="sy">Over niveau</span></div></div>
+    <div class="kc"><div class="klbl">Fejlårsagsanalyser</div><div class="kval">100%</div><div class="ksub"><span class="dot dg"></span><span class="sg">Mål opfyldt</span></div></div>
+    <div class="kc"><div class="klbl">Returårsager Top 5</div><div class="kval">Ja</div><div class="ksub"><span class="dot dg"></span><span class="sg">Analyse gennemført</span></div></div>
+  </div>
+  <div class="st">Kassationsrate – uge 16–21 (%)</div>
+  <div class="cw"><canvas id="ck"></canvas></div>
+</div>
+
+<!-- S -->
+<div id="ps" class="pane">
+  <div class="kgrid">
+    <div class="kc"><div class="klbl">Arbejdsulykker</div><div class="kval">0</div><div class="ksub"><span class="dot dg"></span><span class="sg">Mål: 0</span></div></div>
+    <div class="kc"><div class="klbl">Nærved-hændelser</div><div class="kval">3</div><div class="ksub"><span class="dot dg"></span><span class="sg">Rapporteret (godt)</span></div></div>
+    <div class="kc"><div class="klbl">Sikkerhedsrunderinger</div><div class="kval">4/4</div><div class="ksub"><span class="dot dg"></span><span class="sg">Plan opfyldt</span></div></div>
+    <div class="kc"><div class="klbl">5S score</div><div class="kval">87%</div><div class="ksub"><span class="dot dy"></span><span class="sy">Under mål (&gt;90%)</span></div></div>
+  </div>
+  <div class="st">5S audit score – uge 16–21 (mål: 90%)</div>
+  <div class="cw"><canvas id="cs"></canvas></div>
+</div>
+
+<!-- HANDLINGSLOG -->
+<div id="plg" class="pane">
+  <div class="st">Åbne handlinger – rød KPI-opfølgning</div>
+  <div class="lhdr"><span>KPI</span><span>Afvigelse</span><span>Årsag</span><span>Handling</span><span>Ejer</span><span>Deadline</span><span>Status</span></div>
+  <div class="lrow"><span>OTIF</span><span class="sr">−1,6%</span><span>Kapacitetsmangel + forsinkede leverancer fra supplier</span><span>Ekstra skift + prioritering af forsinkede ordrer</span><span>J. Finmann</span><span>30/05</span><span class="sp so">Åben</span></div>
+  <div class="lrow"><span>Kassationsrate</span><span class="sy">↑ 0,5%</span><span>Håndteringsfejl linje 2 – ny medarbejder</span><span>Gennemgang SOP + mentor tilknyttes</span><span>QA/Teamldr</span><span>27/05</span><span class="sp si">I gang</span></div>
+  <div class="lrow"><span>5S score</span><span class="sy">−3%</span><span>Rydningszone A ikke overholdt</span><span>5S audit + tavlemøde fokus</span><span>Drift</span><span>31/05</span><span class="sp so">Åben</span></div>
+  <div class="lrow"><span>Lead time</span><span class="sy">+0,4 dg</span><span>WMS systemnedetid 2t (uge 20)</span><span>IT backup-protokol gennemgås</span><span>IT/Drift</span><span>02/06</span><span class="sp so">Åben</span></div>
+</div>
+
+<!-- GOVERNANCE -->
+<div id="pgv" class="pane">
+  <div class="gg">
+    <div class="gc">
+      <h3>Møderytme</h3>
+      <div class="rr"><span class="rb">Dagligt</span><div class="rt">Tavlemøde — levering, flow, sikkerhed</div></div>
+      <div class="rr"><span class="rb">Ugentligt</span><div class="rt">KPI review — output, fejl, ressourcer</div></div>
+      <div class="rr"><span class="rb">Månedligt</span><div class="rt">PLØKS review — økonomi, kassation, arbejdsmiljø, trends</div></div>
+      <div class="rr"><span class="rb re">Eskalation</span><div class="rt">Rød 2 perioder i træk → root cause + handlingsplan med ejer og deadline</div></div>
+    </div>
+    <div class="gc">
+      <h3>Trafiklys</h3>
+      <div class="tl"><div class="tc" style="background:#1a9e5c"></div><div><strong style="color:var(--text)">Grøn</strong> — På/over mål. Fortsæt.</div></div>
+      <div class="tl"><div class="tc" style="background:#d4a017"></div><div><strong style="color:var(--text)">Gul</strong> — Risiko / afvigelse. Overvåg og forebyg.</div></div>
+      <div class="tl"><div class="tc" style="background:#c0392b"></div><div><strong style="color:var(--text)">Rød</strong> — Handling nødvendig. Stop, find årsag, aftal handling.</div></div>
+      <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+        <h3 style="margin-bottom:10px">Ejerskab PLØKS</h3>
+        <table class="tbl" style="font-size:12px">
+          <thead><tr><th>Bogstav</th><th>Fokus</th><th>Primær ejer</th></tr></thead>
+          <tbody>
+            <tr><td>P</td><td style="color:var(--text3)">Produktion / flow</td><td style="color:var(--text3)">Operations</td></tr>
+            <tr><td>L</td><td style="color:var(--text3)">Levering / service</td><td style="color:var(--text3)">Logistik</td></tr>
+            <tr><td>Ø</td><td style="color:var(--text3)">Økonomi / effektivitet</td><td style="color:var(--text3)">Finance/Drift</td></tr>
+            <tr><td>K</td><td style="color:var(--text3)">Kassation / kvalitet</td><td style="color:var(--text3)">QA</td></tr>
+            <tr><td>S</td><td style="color:var(--text3)">Sikkerhed / arbejdsmiljø</td><td style="color:var(--text3)">HSE/Ledelse</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+var built={};
+var wk=['U16','U17','U18','U19','U20','U21'];
+var chartOpts=function(color,target){
+  var ds=[{label:'Aktuel',data:null,borderColor:color,backgroundColor:color+'18',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:color}];
+  if(target!==null)ds.push({label:'Mål',data:Array(6).fill(target),borderColor:'rgba(255,255,255,0.2)',borderDash:[5,4],pointRadius:0,fill:false});
+  return {type:'line',data:{labels:wk,datasets:ds},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#5a7390',font:{family:"'IBM Plex Mono'",size:10},autoSkip:false},grid:{color:'rgba(255,255,255,0.05)'}},y:{ticks:{color:'#5a7390',font:{family:"'IBM Plex Mono'",size:10}},grid:{color:'rgba(255,255,255,0.05)'}}}}};
+};
+var charts={
+  p:{el:'cp',data:[128,133,136,139,140,142],color:'#3b82f6',target:null},
+  l:{el:'cl',data:[98.5,98.1,97.6,97.0,96.8,96.4],color:'#ef4444',target:98},
+  e:{el:'ce',data:[5.1,4.9,4.7,4.5,4.3,4.2],color:'#3b82f6',target:null},
+  k:{el:'ck',data:[0.9,1.0,1.1,1.2,1.3,1.4],color:'#f59e0b',target:null},
+  s:{el:'cs',data:[91,90,89,88,88,87],color:'#f59e0b',target:90}
+};
+function bld(id){
+  if(built[id])return;built[id]=1;
+  var c=charts[id];if(!c)return;
+  var opts=chartOpts(c.color,c.target);
+  opts.data.datasets[0].data=c.data;
+  new Chart(document.getElementById(c.el),opts);
+}
+var map={o:'po',p:'pp',l:'pl',e:'pe',k:'pk',s:'ps',lg:'plg',gv:'pgv'};
+function sw(id,el){
+  document.querySelectorAll('.pane').forEach(function(p){p.classList.remove('active')});
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active')});
+  document.getElementById(map[id]).classList.add('active');
+  el.classList.add('active');
+  setTimeout(function(){bld(id)},30);
+}
+</script>
+</body>
+</html>
